@@ -1,19 +1,10 @@
-# BareBones Symphony Ensemble
+# BareBones Branch of the Symphony 2 Repository
 
-The BareBones ensemble is a modified install package for Symphony 2.0.4. The main difference between this install and the official version is that this version has been rebuilt from a clean install with exactly the same structure as the default Spectrum theme.
+This repository has been used to assemble the submodules necessary to build the BareBones Ensemble. It can be assemble with the following process:
 
-- CSS and images are not included
-- No entries have been created
-- The order of the sections has been modified
+### Install Symphony and BareBones Workspace via Git
 
-### Install
-
-	git clone git://github.com/bauhouse/sym-barebones.git
-
-
-### Install from BareBones Branch
-
-This repository brings together two separate branches to simplify the install process. To install from these branches, the process looks something like this:
+Clone my fork of the Symphony 2 repository
 
 	git clone git://github.com/bauhouse/symphony-2.git
 
@@ -41,13 +32,32 @@ Update the submodules
 
 	git submodule update
 	
-At this point, all the files required for a bare bones install are ready. The second branch that has been included as a submodule is the workspace, which is referring to a specific commit of the barebones branch of my fork of the Symphony workspace repository. To clone this fork separately, use the following commands:
+At this point, all the files required for a bare bones install are ready. The second branch that has been included as a submodule is the workspace, which is referring to a specific commit of the [barebones branch](http://github.com/bauhouse/symphony-2/tree/barebones) of my fork of the Symphony workspace repository. To clone this fork separately, use the following commands:
 
 	git clone git://github.com/bauhouse/workspace.git
 	cd workspace
 	git checkout -b barebones
 	git pull origin barebones
 
+## The BareBones Ensemble
+
+The [BareBones Ensemble](http://github.com/bauhouse/sym-barebones/tree/master) is a modified installer for Symphony 2.0.4. The main difference between this install and the official version is that this version has been rebuilt from a clean install with exactly the same structure as the default Spectrum theme.
+
+## Install
+
+The BareBones Ensemble repository brings together the [Symphony 2.0.4](http://github.com/symphony/symphony-2/tree/master) core application, the required extensions and the [BareBones workspace](http://github.com/bauhouse/workspace/tree/barebones) to simplify the install process. This installer provides a single ZIP archive or a single Git command to provide all the files necessary for installation. Refer to the README file for the [BareBones workspace](http://github.com/bauhouse/workspace/tree/barebones) for install instructions using Git to bring all the different source repositories together.
+
+### Install from BareBones Ensemble ZIP Archive
+
+Go to the [Downloads](http://github.com/bauhouse/workspace/downloads) page to download the ZIP file. This is the simplest, if you want to avoid using Git altogether.
+
+### Install BareBones Ensemble via Git
+
+This repository has been created to make the installation as simple as possible. A single Git command will provide all that you need:
+
+	git clone git://github.com/bauhouse/sym-barebones.git
+
+That should be all. Install Symphony as usual. (Find the instructions at the [official Symphony 2 repository](http://github.com/symphony/symphony-2).) For convenience, they have been included below:
 
 ## Symphony 2 ##
 
