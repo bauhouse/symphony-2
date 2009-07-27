@@ -1,4 +1,4 @@
-# BareBones Branch of the Symphony 2 Repository
+# BareBones Core
 
 This repository has been used to assemble the submodules necessary to build the [BareBones Ensemble](http://github.com/bauhouse/sym-barebones/tree/master). It can be assembled with the following process:
 
