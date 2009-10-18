@@ -88,7 +88,7 @@
 				$_data = $data;
 			}
 			
-			$_data = preg_replace('/<!DOCTYPE[-.:"\'\/\\w\\s]+>/' , '', $_data);
+			$_data = preg_replace('/<!DOCTYPE[-.:"\'\/\\w\\s]+>/', NULL, $_data);
 			
 			if(strpos($_data, '<?xml') === false){
 				$_data = '<?xml version="1.0" encoding="'.$encoding.'"?><rootelement>'.$_data.'</rootelement>';
@@ -414,7 +414,7 @@
 		Param: $filedata - raw $_FILE data
 		Return: associative array
 		
-		***/		
+		***/
 		public static function processFilePostData($filedata){
 			
 			$result = array();
@@ -436,6 +436,46 @@
 			}
 
 			return $result;
+		}
+		
+		/***
+		
+		Method: getPostData
+		Description: Returns $_POST merged with $_FILES.
+		Return: associative array
+		
+		***/
+		public static function getPostData() {
+			if (!function_exists('merge_file_post_data')) {
+				function merge_file_post_data($type, $file, &$post) {
+					foreach ($file as $key => $value) {
+						if (!isset($post[$key])) $post[$key] = array();
+						if (is_array($value)) merge_file_post_data($type, $value, $post[$key]);
+						else $post[$key][$type] = $value;
+					}
+				}
+			}
+			
+			$files = array(
+				'name'		=> array(),
+				'type'		=> array(),
+				'tmp_name'	=> array(),
+				'error'		=> array(),
+				'size'		=> array()
+			);
+			$post = $_POST;
+			
+			foreach ($_FILES as $key_a => $data_a) {
+				foreach ($data_a as $key_b => $data_b) {
+					$files[$key_b][$key_a] = $data_b;
+				}
+			}
+			
+			foreach ($files as $type => $data) {
+				merge_file_post_data($type, $data, $post);
+			}
+			
+			return $post;
 		}
 		
 		/***
@@ -499,7 +539,35 @@
 			return $tmp;
 				
 		}
-
+		
+		/***
+		
+		Method: array_to_xml
+		Description: Convert an array into an XML element.
+		Param: $parent - XML Element to append to
+		Param: $data - Array of data to process.
+		Return: rebuilt array
+		
+		***/
+		public static function array_to_xml($parent, $data) {
+			foreach ($data as $element_name => $value) {
+				if (strlen($value) == 0) continue;
+				
+				if (is_int($element_name)) {
+					$child = new XMLElement('item');
+					$child->setAttribute('index', $element_name + 1);
+				}
+				
+				else {
+					$child = new XMLElement($element_name);
+				}
+				
+				if (is_array($value)) General::array_to_xml($child, $value);
+				else $child->setValue(General::sanitize($value));
+				
+				$parent->appendChild($child);
+			}
+		}
 
 		/***
 		
@@ -538,12 +606,15 @@
 		Method: deleteFile
 		Description: deletes a file using the unlink function
 		Param: $file - file to delete	
-		Return: true or false
+		Return: true on success
 		
 		***/		
-		public static function deleteFile($file){
+		public static function deleteFile($file, $slient=true){
 			if(!@unlink($file)){
-				trigger_error(__('Unable to remove file - %s', array($file)), E_USER_WARNING);
+				if($slient == false){
+					throw new Exception(__('Unable to remove file - %s', array($file)));
+				}
+				
 				return false;
 			}
 			
@@ -849,8 +920,8 @@
 			
 			$file_size = intval($file_size);
 			
-			if($file_size >= (1024 * 1024)) 	$file_size = number_format($file_size * (1 / (1024 * 1024)), 2) . ' mb';
-			elseif($file_size >= 1024) 			$file_size = intval($file_size * (1/1024)) . ' kb';
+			if($file_size >= (1024 * 1024)) 	$file_size = number_format($file_size * (1 / (1024 * 1024)), 2) . ' MB';
+			elseif($file_size >= 1024) 			$file_size = intval($file_size * (1/1024)) . ' KB';
 			else 								$file_size = intval($file_size) . ' bytes';
 			
 			return $file_size;
