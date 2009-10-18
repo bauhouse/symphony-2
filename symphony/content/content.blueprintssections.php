@@ -7,15 +7,10 @@
 
 	Class contentBlueprintsSections extends AdministrationPage{
 
-		var $_errors;
-		
-		var $_templateOrder;
+		public $_errors;
 		
 		function __construct(&$parent){
 			parent::__construct($parent);
-			
-			$this->_templateOrder = array('input', 'textarea', 'taglist', 'select', 'checkbox', 'date', 'author', 'upload');
-			
 		}
 		
 		function __viewIndex(){
@@ -49,7 +44,7 @@
 
 				foreach($sections as $s){
 					
-					$entry_count = intval($this->_Parent->Database->fetchVar('count', 0, "SELECT count(*) AS `count` FROM `tbl_entries` WHERE `section_id` = '".$s->get('id')."' "));
+					$entry_count = intval(Symphony::Database()->fetchVar('count', 0, "SELECT count(*) AS `count` FROM `tbl_entries` WHERE `section_id` = '".$s->get('id')."' "));
 					
 					## Setup each cell
 					$td1 = Widget::TableData(Widget::Anchor($s->get('name'), $this->_Parent->getCurrentPageURL() . 'edit/' . $s->get('id') .'/', NULL, 'content'));
@@ -97,9 +92,9 @@
 			$this->setPageType('form');	
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Symphony'), __('Sections'))));
 			$this->appendSubheading(__('Untitled'));
-		
+			
 			$fieldManager = new FieldManager($this->_Parent);
-			$types = array_union_simple($this->_templateOrder, $fieldManager->fetchTypes());
+			$types = array();
 			
 		    $fields = $_POST['fields'];
 			$meta = $_POST['meta'];
@@ -122,26 +117,36 @@
 			$fieldset->appendChild(new XMLElement('legend', __('Essentials')));
 			
 			$div = new XMLElement('div', NULL, array('class' => 'group'));
+			$namediv = new XMLElement('div', NULL);
 			
 			$label = Widget::Label('Name');
 			$label->appendChild(Widget::Input('meta[name]', $meta['name']));
 			
-			if(isset($this->_errors['name'])) $div->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['name']));
-			else $div->appendChild($label);
-			
-			
-			$label = Widget::Label('Navigation Group <i>Created if does not exist</i>');
-			$label->appendChild(Widget::Input('meta[navigation_group]', $meta['navigation_group']));
-			
-			if(isset($this->_errors['navigation_group'])) $div->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['navigation_group']));
-			else $div->appendChild($label);
-			
-			$fieldset->appendChild($div);				
+			if(isset($this->_errors['name'])) $namediv->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['name']));
+			else $namediv->appendChild($label);
 			
 			$label = Widget::Label();
 			$input = Widget::Input('meta[hidden]', 'yes', 'checkbox', ($meta['hidden'] == 'yes' ? array('checked' => 'checked') : NULL));
 			$label->setValue(__('%s Hide this section from the Publish menu', array($input->generate(false))));
-			$fieldset->appendChild($label);			
+			$namediv->appendChild($label);
+			$div->appendChild($namediv);
+			
+			$navgroupdiv = new XMLElement('div', NULL);
+			$sectionManager = new SectionManager($this->_Parent);
+			$sections = $sectionManager->fetch(NULL, 'ASC', 'sortorder');
+			$label = Widget::Label('Navigation Group <i>Created if does not exist</i>');
+			$label->appendChild(Widget::Input('meta[navigation_group]', $meta['navigation_group']));
+			$ul = new XMLElement('ul', NULL, array('class' => 'tags singular'));
+			foreach($sections as $s){
+					$ul->appendChild(new XMLElement('li', $s->get('navigation_group')));
+				}
+			
+			if(isset($this->_errors['navigation_group'])) $navgroupdiv->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['navigation_group']));
+			else $navgroupdiv->appendChild($label);
+			$navgroupdiv->appendChild($ul);
+			$div->appendChild($navgroupdiv);
+			
+			$fieldset->appendChild($div);						
 			
 			$this->Form->appendChild($fieldset);		
 
@@ -150,13 +155,14 @@
 			$fieldset->appendChild(new XMLElement('legend', __('Fields')));
 			
 			$div = new XMLElement('div');
-			$div->setAttribute('class', 'subsection');
-			$div->appendChild(new XMLElement('h3', __('Fields')));
-				
+			$h3 = new XMLElement('h3', __('Fields'));
+			$h3->setAttribute('class', 'label');
+			$div->appendChild($h3);
+			
 			$ol = new XMLElement('ol');
+			$ol->setAttribute('id', 'fields-duplicator');
 			
 			if(!$showEmptyTemplate){
-
 				foreach($fields as $position => $data){
 					if($input = $fieldManager->create($data['type'])){
 						$input->setArray($data);
@@ -170,24 +176,28 @@
 					}
 				}
 			}
-
-			foreach($types as $t){		
-				if($input = $fieldManager->create($t)){
-
-					$defaults = array();
-
-					$input->findDefaults($defaults);			
-					$input->setArray($defaults);
-
-					$wrapper =& new XMLElement('li');
-					$wrapper->setAttribute('class', 'template');
-					
-					$input->set('sortorder', '-1');
-					$input->displaySettingsPanel($wrapper);
-				
-					$ol->appendChild($wrapper);
-
+			
+			foreach ($fieldManager->fetchTypes() as $type) {
+				if ($type = $fieldManager->create($type)) {
+					array_push($types, $type);
 				}
+			}
+			
+			uasort($types, create_function('$a, $b', 'return strnatcasecmp($a->_name, $b->_name);'));
+			
+			foreach ($types as $type) {		
+				$defaults = array();
+				
+				$type->findDefaults($defaults);			
+				$type->setArray($defaults);
+				
+				$wrapper = new XMLElement('li');
+				$wrapper->setAttribute('class', 'template');
+				
+				$type->set('sortorder', '-1');
+				$type->displaySettingsPanel($wrapper);
+				
+				$ol->appendChild($wrapper);
 			}
 
 			$div->appendChild($ol);
@@ -213,9 +223,9 @@
 				$this->_Parent->customError(E_USER_ERROR, __('Unknown Section'), __('The Section you are looking for could not be found.'), false, true);
 
 			$meta = $section->get();
-
-			$fieldManager = new FieldManager($this->_Parent);	
-			$types = array_union_simple($this->_templateOrder, $fieldManager->fetchTypes());
+			
+			$fieldManager = new FieldManager($this->_Parent);
+			$types = array();
 
 			$formHasErrors = (is_array($this->_errors) && !empty($this->_errors));			
 			if($formHasErrors) $this->pageAlert(__('An error occurred while processing this form. <a href="#error">See below for details.</a>'), Alert::ERROR);	
@@ -283,32 +293,40 @@
 			$this->appendSubheading($meta['name']);
 
 			$fieldset = new XMLElement('fieldset');
-
-			$fieldset = new XMLElement('fieldset');
 			$fieldset->setAttribute('class', 'settings');
 			$fieldset->appendChild(new XMLElement('legend', __('Essentials')));
 			
 			$div = new XMLElement('div', NULL, array('class' => 'group'));
+			$namediv = new XMLElement('div', NULL);
 			
 			$label = Widget::Label('Name');
 			$label->appendChild(Widget::Input('meta[name]', $meta['name']));
 			
-			if(isset($this->_errors['name'])) $div->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['name']));
-			else $div->appendChild($label);
+			if(isset($this->_errors['name'])) $namediv->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['name']));
+			else $namediv->appendChild($label);
 			
-			
-			$label = Widget::Label('Navigation Group <i>Created if does not exist</i>');
-			$label->appendChild(Widget::Input('meta[navigation_group]', $meta['navigation_group']));
-			
-			if(isset($this->_errors['navigation_group'])) $div->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['navigation_group']));
-			else $div->appendChild($label);
-			
-			$fieldset->appendChild($div);
-
 			$label = Widget::Label();
 			$input = Widget::Input('meta[hidden]', 'yes', 'checkbox', ($meta['hidden'] == 'yes' ? array('checked' => 'checked') : NULL));
 			$label->setValue(__('%s Hide this section from the Publish menu', array($input->generate(false))));
-			$fieldset->appendChild($label);
+			$namediv->appendChild($label);
+			$div->appendChild($namediv);
+			
+			$navgroupdiv = new XMLElement('div', NULL);
+			$sectionManager = new SectionManager($this->_Parent);
+			$sections = $sectionManager->fetch(NULL, 'ASC', 'sortorder');
+			$label = Widget::Label('Navigation Group <i>Choose only one. Created if does not exist</i>');
+			$label->appendChild(Widget::Input('meta[navigation_group]', $meta['navigation_group']));
+			$ul = new XMLElement('ul', NULL, array('class' => 'tags singular'));
+			foreach($sections as $s){
+					$ul->appendChild(new XMLElement('li', $s->get('navigation_group')));
+				}
+			
+			if(isset($this->_errors['navigation_group'])) $navgroupdiv->appendChild(Widget::wrapFormElementWithError($label, $this->_errors['navigation_group']));
+			else $navgroupdiv->appendChild($label);
+			$navgroupdiv->appendChild($ul);
+			$div->appendChild($navgroupdiv);
+			
+			$fieldset->appendChild($div);
 			
 			$this->Form->appendChild($fieldset);
 
@@ -317,11 +335,12 @@
 			$fieldset->appendChild(new XMLElement('legend', __('Fields')));
 			
 			$div = new XMLElement('div');
-			$div->setAttribute('class', 'subsection');
-			$div->appendChild(new XMLElement('h3', __('Fields')));
-				
+			$h3 = new XMLElement('h3', __('Fields'));
+			$h3->setAttribute('class', 'label');
+			$div->appendChild($h3);
+			
 			$ol = new XMLElement('ol');
-			$ol->setAttribute('class', 'orderable subsection');
+			$ol->setAttribute('id', 'fields-duplicator');
 			
 			if(is_array($fields) && !empty($fields)){
 				foreach($fields as $position => $field){
@@ -334,25 +353,30 @@
 
 				}
 			}
-
-			foreach($types as $t){	
-				if($field = $fieldManager->create($t)){
-
-					$defaults = array();
-
-					$field->findDefaults($defaults);			
-					$field->setArray($defaults);
-
-					$wrapper =& new XMLElement('li');
-					$wrapper->setAttribute('class', 'template');
-
-					$field->set('sortorder', '-1');
-					$field->displaySettingsPanel($wrapper);
-					$ol->appendChild($wrapper);
-
+			
+			foreach ($fieldManager->fetchTypes() as $type) {
+				if ($type = $fieldManager->create($type)) {
+					array_push($types, $type);
 				}
 			}
-
+			
+			uasort($types, create_function('$a, $b', 'return strnatcasecmp($a->_name, $b->_name);'));
+			
+			foreach ($types as $type) {		
+				$defaults = array();
+				
+				$type->findDefaults($defaults);			
+				$type->setArray($defaults);
+				
+				$wrapper = new XMLElement('li');
+				$wrapper->setAttribute('class', 'template');
+				
+				$type->set('sortorder', '-1');
+				$type->displaySettingsPanel($wrapper);
+				
+				$ol->appendChild($wrapper);
+			}
+			
 			$div->appendChild($ol);
 			$fieldset->appendChild($div);
 			
@@ -422,7 +446,7 @@
 				}
 
 				## Check for duplicate section handle
-				elseif($this->_Parent->Database->fetchRow(0, "SELECT * FROM `tbl_sections` WHERE `name` = '" . $meta['name'] . "' LIMIT 1")){
+				elseif(Symphony::Database()->fetchRow(0, "SELECT * FROM `tbl_sections` WHERE `name` = '" . $meta['name'] . "' LIMIT 1")){
 					$this->_errors['name'] = __('A Section with the name <code>%s</code> name already exists', array($meta['name']));
 					$canProceed = false;
 				}
@@ -482,7 +506,7 @@
 				if($canProceed){
 
 			        $query = 'SELECT MAX(`sortorder`) + 1 AS `next` FROM tbl_sections LIMIT 1';
-			        $next = $this->_Parent->Database->fetchVar('next', 0, $query);
+			        $next = Symphony::Database()->fetchVar('next', 0, $query);
 
 			        $meta['sortorder'] = ($next ? $next : '1');
 					$meta['handle'] = Lang::createHandle($meta['name']);
@@ -560,7 +584,7 @@
 				}
 
 				## Check for duplicate section handle
-				elseif($meta['name'] != $existing_section->get('name') && $this->_Parent->Database->fetchRow(0, "SELECT * FROM `tbl_sections` WHERE `name` = '" . $meta['name'] . " AND `id` != ' . $section_id . ' LIMIT 1")){
+				elseif($meta['name'] != $existing_section->get('name') && Symphony::Database()->fetchRow(0, "SELECT * FROM `tbl_sections` WHERE `name` = '" . $meta['name'] . " AND `id` != ' . $section_id . ' LIMIT 1")){
 					$this->_errors['name'] = __('A Section with the name <code>%s</code> name already exists', array($meta['name']));
 					$canProceed = false;
 				}
@@ -641,7 +665,7 @@
 							}
 						}
 
-						$missing_cfs = $this->_Parent->Database->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '$section_id' AND `id` NOT IN ('".@implode("', '", $id_list)."')");
+						$missing_cfs = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '$section_id' AND `id` NOT IN ('".@implode("', '", $id_list)."')");
 
 						if(is_array($missing_cfs) && !empty($missing_cfs)){
 							foreach($missing_cfs as $id){

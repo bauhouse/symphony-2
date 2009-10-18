@@ -27,7 +27,7 @@
 					case 'saved':
 						$this->pageAlert(
 							__(
-								'Data source updated at %1$s. <a href="%2$s">Create another?</a> <a href="%2$s">View all Data sources</a>', 
+								'Data source updated at %1$s. <a href="%2$s">Create another?</a> <a href="%3$s">View all Data sources</a>', 
 								array(
 									DateTimeObj::getTimeAgo(__SYM_TIME_FORMAT__), 
 									URL . '/symphony/blueprints/datasources/new/', 
@@ -39,7 +39,7 @@
 					case 'created':
 						$this->pageAlert(
 							__(
-								'Data source created at %1$s. <a href="%2$s">Create another?</a> <a href="%3$s">View all Data source</a>', 
+								'Data source created at %1$s. <a href="%2$s">Create another?</a> <a href="%3$s">View all Data sources</a>', 
 								array(
 									DateTimeObj::getTimeAgo(__SYM_TIME_FORMAT__), 
 									URL . '/symphony/blueprints/datasources/new/', 
@@ -89,6 +89,8 @@
 				$fields['limit_type'] = $existing->dsParamLIMITTYPE;
 				$fields['group'] = $existing->dsParamGROUP;
 				$fields['html_encode'] = $existing->dsParamHTMLENCODE;
+				$fields['associated_entry_counts'] = $existing->dsParamASSOCIATEDENTRYCOUNTS;				
+				if ($fields['associated_entry_counts'] == NULL) $fields['associated_entry_counts'] = 'yes';
 				if($existing->dsParamREDIRECTONEMPTY == 'yes') $fields['redirect_on_empty'] = 'yes';
 				
 				$existing->dsParamFILTERS = @array_map('stripslashes', $existing->dsParamFILTERS);
@@ -140,7 +142,9 @@
 				$fields['page_number'] = '1';
 				
 				$fields['order'] = 'desc';
-				$fields['limit_type'] = 'entries';		
+				$fields['limit_type'] = 'entries';
+				
+				$fields['associated_entry_counts'] = NULL;
 				
 			}
 			
@@ -202,11 +206,13 @@
 			foreach($field_groups as $section_id => $section_data){	
 
 				$div = new XMLElement('div');
-				$div->setAttribute('class', 'subsection contextual ' . $section_data['section']->get('id'));
-				
-				$div->appendChild(new XMLElement('h3', __('Filter %s by', array($section_data['section']->get('name')))));
+				$div->setAttribute('class', 'contextual ' . $section_data['section']->get('id'));
+				$h3 = new XMLElement('h3', __('Filter %s by', array($section_data['section']->get('name'))));
+				$h3->setAttribute('class', 'label');
+				$div->appendChild($h3);
 				
 				$ol = new XMLElement('ol');
+				$ol->setAttribute('id', 'filters-duplicator');
 
 				if(isset($fields['filter'][$section_data['section']->get('id')]['id'])){
 					$li = new XMLElement('li');
@@ -251,11 +257,13 @@
 			}
 			
 			$div = new XMLElement('div');
-			$div->setAttribute('class', 'subsection contextual ' . __('authors'));
-
-			$div->appendChild(new XMLElement('h3', __('Filter Authors by')));
-
+			$div->setAttribute('class', 'contextual ' . __('authors'));
+			$h3 = new XMLElement('h3', __('Filter Authors by'));
+			$h3->setAttribute('class', 'label');
+			$div->appendChild($h3);
+			
 			$ol = new XMLElement('ol');
+			$ol->setAttribute('id', 'filters-duplicator');
 			
 			$this->__appendAuthorFilter($ol, __('ID'), 'id', $fields['filter']['author']['id'], (!isset($fields['filter']['author']['id'])));	
 			$this->__appendAuthorFilter($ol, __('Username'), 'username', $fields['filter']['author']['username'], (!isset($fields['filter']['author']['username'])));
@@ -270,13 +278,15 @@
 
 
 			$div = new XMLElement('div');
-			$div->setAttribute('class', 'subsection contextual ' . __('navigation'));
-
-			$div->appendChild(new XMLElement('h3', __('Filter Navigation by')));
+			$div->setAttribute('class', 'contextual ' . __('navigation'));
+			$h3 = new XMLElement('h3', __('Filter Navigation by'));
+			$h3->setAttribute('class', 'label');
+			$div->appendChild($h3);
 			
 			$ol = new XMLElement('ol');
+			$ol->setAttribute('id', 'filters-duplicator');
 
-			$pages = $this->_Parent->Database->fetch("SELECT * FROM `tbl_pages` ORDER BY `title` ASC");
+			$pages = Symphony::Database()->fetch("SELECT * FROM `tbl_pages` ORDER BY `title` ASC");
 				
 			$ul = new XMLElement('ul');
 			$ul->setAttribute('class', 'tags');
@@ -558,7 +568,13 @@
 			}
 			
 			$label->appendChild(Widget::Select('fields[xml_elements][]', $options, array('multiple' => 'multiple', 'class' => 'filtered')));
-			$li->appendChild($label);			
+			$li->appendChild($label);
+			
+			$label = Widget::Label();
+			$label->setAttribute('class', 'contextual inverse ' . __('authors'));			
+			$input = Widget::Input('fields[associated_entry_counts]', 'yes', 'checkbox', ((isset($fields['associated_entry_counts']) && $fields['associated_entry_counts'] == 'yes') ? array('checked' => 'checked') : NULL));
+			$label->setValue(__('%s Include a count of entries in associated sections', array($input->generate(false))));
+			$li->appendChild($label);
 			
 			$label = Widget::Label();
 			$label->setAttribute('class', 'contextual inverse ' . __('authors'));
@@ -584,10 +600,12 @@
 			$fieldset->appendChild($p);
 			
 			$div = new XMLElement('div');
-			$div->setAttribute('class', 'subsection');
-			$div->appendChild(new XMLElement('h3', __('Namespace Declarations <i>Optional</i>')));
+			$h3 = new XMLElement('h3', __('Namespace Declarations <i>Optional</i>'));
+			$h3->setAttribute('class', 'label');
+			$div->appendChild($h3);
 			
 			$ol = new XMLElement('ol');
+			$ol->setAttribute('id', 'filters-duplicator');
 			
 			if(is_array($fields['dynamic_xml']['namespace']['name'])){
 				
@@ -939,9 +957,17 @@
 						break;
 						
 					case 'static_xml':
+						
+						$fields['static_xml'] = trim($fields['static_xml']);
+						
+						if(preg_match('/^<\?xml/i', $fields['static_xml']) == true){
+							// Need to remove any XML declaration
+							$fields['static_xml'] = preg_replace('/^<\?xml[^>]+>/i', NULL, $fields['static_xml']);
+						}
+						
 						$value = sprintf(
 							'$result = "%s";',
-							addslashes($fields['static_xml'])
+							addslashes(trim($fields['static_xml']))
 						);
 						$dsShell = str_replace('<!-- GRAB -->', $value, $dsShell);
 						break;
@@ -967,6 +993,9 @@
 						$params['sort'] = $fields['sort'];
 						$params['startpage'] = $fields['page_number'];
 						$params['htmlencode'] = $fields['html_encode'];
+						$params['associatedentrycounts'] = $fields['associated_entry_counts'];
+						
+						if ($params['associatedentrycounts'] == NULL) $params['associatedentrycounts'] = 'no';
 						
 						$dsShell = str_replace('<!-- GRAB -->', "include(TOOLKIT . '/data-sources/datasource.section.php');", $dsShell);
 						
@@ -982,16 +1011,8 @@
 				$dsShell = str_replace('<!-- CLASS NAME -->', $classname, $dsShell);
 				$dsShell = str_replace('<!-- SOURCE -->', $source, $dsShell);
 				
-				if(preg_match_all('@{(\$ds-[^}]+)}@i', $dsShell, $matches)){
-					
-					$dependancies = array();
-					
-					foreach($matches[1] as $match){
-						if(preg_match_all('/(\$ds-[^:]+)/i', $match, $inner_matches)) $dependancies = array_merge($dependancies, $inner_matches[1]);
-					}
-					
-					$dependancies = General::array_remove_duplicates($dependancies);
-					
+				if(preg_match_all('@(\$ds-[^:}]+)@i', $dsShell, $matches)){
+					$dependancies = General::array_remove_duplicates($matches[1]);
 					$dsShell = str_replace('<!-- DS DEPENDANCY LIST -->', "'" . implode("', '", $dependancies) . "'", $dsShell);
 				}
 								
@@ -999,7 +1020,7 @@
 				$dsShell = preg_replace(array('/<!--[\w ]++-->/', '/(\r\n){2,}/', '/(\t+[\r\n]){2,}/'), '', $dsShell);	
 
 				##Write the file
-				if(!is_writable(dirname($file)) || !$write = General::writeFile($file, $dsShell, $this->_Parent->Configuration->get('write_mode', 'file')))
+				if(!is_writable(dirname($file)) || !$write = General::writeFile($file, $dsShell, Symphony::Configuration()->get('write_mode', 'file')))
 					$this->pageAlert(__('Failed to write Data source to <code>%s</code>. Please check permissions.', array(DATASOURCES)), Alert::ERROR);
 
 				##Write Successful, add record to the database
@@ -1012,14 +1033,14 @@
 						## Update pages that use this DS
 				
 						$sql = "SELECT * FROM `tbl_pages` WHERE `data_sources` REGEXP '[[:<:]]".$existing_handle."[[:>:]]' ";
-						$pages = $this->_Parent->Database->fetch($sql);
+						$pages = Symphony::Database()->fetch($sql);
 
 						if(is_array($pages) && !empty($pages)){
 							foreach($pages as $page){
 								
 								$page['data_sources'] = preg_replace('/\b'.$existing_handle.'\b/i', $classname, $page['data_sources']);
 								
-								$this->_Parent->Database->update($page, 'tbl_pages', "`id` = '".$page['id']."'");
+								Symphony::Database()->update($page, 'tbl_pages', "`id` = '".$page['id']."'");
 							}
 						}
 					}

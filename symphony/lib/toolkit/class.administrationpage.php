@@ -34,6 +34,10 @@
 		function setTitle($val, $position=null) {
 			return $this->addElementToHead(new XMLElement('title', $val), $position);
 		}
+	
+		public function Context(){
+			return $this->_context;
+		}
 		
 		function build($context = NULL){
 			
@@ -47,7 +51,11 @@
 			$this->Html->setDTD('<!DOCTYPE html>');
 			$this->Html->setAttribute('lang', __LANG__);
 			$this->addElementToHead(new XMLElement('meta', NULL, array('http-equiv' => 'Content-Type', 'content' => 'text/html; charset=UTF-8')), 0);
+			$this->addStylesheetToHead(URL . '/symphony/assets/symphony.duplicator.css', 'screen', 70);
 			$this->addScriptToHead(URL . '/symphony/assets/jquery.js', 50);
+			$this->addScriptToHead(URL . '/symphony/assets/symphony.collapsible.js', 70);
+			$this->addScriptToHead(URL . '/symphony/assets/symphony.orderable.js', 71);
+			$this->addScriptToHead(URL . '/symphony/assets/symphony.duplicator.js', 72);
 			$this->addScriptToHead(URL . '/symphony/assets/admin.js', 60);
 			
 			###
@@ -66,7 +74,7 @@
 			## Build the form
 			$this->Form = Widget::Form($this->_Parent->getCurrentPageURL(), 'post');
 			$h1 = new XMLElement('h1');
-			$h1->appendChild(Widget::Anchor($this->_Parent->Configuration->get('sitename', 'general'), rtrim(URL, '/') . '/'));
+			$h1->appendChild(Widget::Anchor(Symphony::Configuration()->get('sitename', 'general'), rtrim(URL, '/') . '/'));
 			$this->Form->appendChild($h1);
 			
 			$this->appendNavigation();
@@ -178,13 +186,12 @@
 			# Description: Immediately before displaying the admin navigation. Provided with the navigation array
 			#              Manipulating it will alter the navigation for all pages.
 			# Global: Yes
-			$this->_Parent->ExtensionManager->notifyMembers('NavigationPreRender', '/administration/', array('navigation' => &$nav));
+			$this->_Parent->ExtensionManager->notifyMembers('NavigationPreRender', '/backend/', array('navigation' => &$nav));
 
 			$xNav = new XMLElement('ul');
 			$xNav->setAttribute('id', 'nav');
 
 			foreach($nav as $n){
-
 				$n_bits = explode('/', $n['link'], 3);
 
 				$can_access = false;
@@ -250,7 +257,7 @@
 										
 										## Make sure preferences menu only shows if extensions are subscribed to it
 										if($c['name'] == __('Preferences') && $n['name'] == __('System')){
-											$extensions = $this->_Parent->Database->fetch("
+											$extensions = Symphony::Database()->fetch("
 													SELECT * 
 													FROM `tbl_extensions_delegates` 
 													WHERE `delegate` = 'AddCustomPreferenceFieldsets'"
@@ -320,7 +327,7 @@
 
 				}
 				
-				elseif(($page == $item['link']) && isset($item['limit'])){						
+				elseif(isset($item['link']) && ($page == $item['link']) && isset($item['limit'])){						
 					$page_limit	= $item['limit'];	  	
 				}
 			}
@@ -389,7 +396,7 @@
 				}
 			}
 			
-			$sections = $this->_Parent->Database->fetch("SELECT * FROM `tbl_sections` ORDER BY `sortorder` ASC");
+			$sections = Symphony::Database()->fetch("SELECT * FROM `tbl_sections` ORDER BY `sortorder` ASC");
 
 			if(is_array($sections) && !empty($sections)){
 				foreach($sections as $s){
@@ -500,7 +507,7 @@
 			# Description: After building the Navigation properties array. This is specifically for extentions to add their groups to the navigation or items to groups,
 			#			   already in the navigation. Note: THIS IS FOR ADDING ONLY! If you need to edit existing navigation elements, use the 'NavigationPreRender' delegate.
 			# Global: Yes
-			$this->_Parent->ExtensionManager->notifyMembers('ExtensionsAddToNavigation', '/administration/', array('navigation' => &$nav));
+			$this->_Parent->ExtensionManager->notifyMembers('ExtensionsAddToNavigation', '/backend/', array('navigation' => &$nav));
 						
 			$pageCallback = $this->_Parent->getPageCallback();
 			
@@ -562,7 +569,7 @@
 			
 			$system_types = array('index', 'XML', 'admin', '404', '403');
 			
-			if(!$types = $this->_Parent->Database->fetchCol('type', "SELECT `type` FROM `tbl_pages_types` ORDER BY `type` ASC")) return $system_types;
+			if(!$types = Symphony::Database()->fetchCol('type', "SELECT `type` FROM `tbl_pages_types` ORDER BY `type` ASC")) return $system_types;
 			
 			return (is_array($types) && !empty($types) ? General::array_remove_duplicates(array_merge($system_types, $types)) : $system_types);
 

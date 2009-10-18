@@ -18,7 +18,7 @@
 				__('Create a new page'), 'create button'
 			));
 			
-			$pages = $this->_Parent->Database->fetch("
+			$pages = Symphony::Database()->fetch("
 				SELECT
 					p.*
 				FROM
@@ -52,7 +52,7 @@
 					$page_edit_url = $this->_Parent->getCurrentPageURL() . 'edit/' . $page['id'] . '/';
 					$page_template = $this->__createHandle($page['path'], $page['handle']);
 					$page_template_url = $this->_Parent->getCurrentPageURL() . 'template/' . $page_template . '/';
-					$page_types = $this->_Parent->Database->fetchCol('type', "
+					$page_types = Symphony::Database()->fetchCol('type', "
 						SELECT
 							t.type
 						FROM
@@ -129,6 +129,19 @@
 			$filename = $this->_context[1] . '.xsl';
 			$file_abs = PAGES . '/' . $filename;
 			
+			$is_child = strrpos($this->_context[1],'_');
+			$pagename = ($is_child != false ? substr($this->_context[1], $is_child + 1) : $this->_context[1]);
+
+			$pagedata = $this->_Parent->Database->fetchRow(0, "
+					SELECT
+						p.*
+					FROM
+						`tbl_pages` AS p
+					WHERE
+						p.handle = '{$pagename}'
+					LIMIT 1
+				");
+			
 			if (!@is_file($file_abs)) redirect(URL . '/symphony/blueprints/pages/');
 			
 			$fields['body'] = @file_get_contents($file_abs);
@@ -140,12 +153,10 @@
 			if (isset($this->_context[2])) {
 				$this->pageAlert(
 					__(
-						'%s %s at %s. <a href="%s">View all %s</a>',
+						'Page updated at %s. <a href="%s">View all Pages</a>',
 						array(
-							__('Page'), 'updated',
 							DateTimeObj::getTimeAgo(__SYM_TIME_FORMAT__),
-							URL . '/symphony/blueprints/pages/',
-							__('Pages')
+							URL . '/symphony/blueprints/pages/'
 						)
 					),
 					Alert::SUCCESS
@@ -160,7 +171,7 @@
 					$filename
 				)
 			));
-			$this->appendSubheading(($filename ? $filename : __('Untitled')));
+			$this->appendSubheading(__($filename ? $filename : __('Untitled')), Widget::Anchor(__('Edit Configuration'), URL . '/symphony/blueprints/pages/edit/' . $pagedata['id'], __('Edit Page Confguration'), 'button'));
 			
 			if (!empty($_POST)) $fields = $_POST['fields'];
 			
@@ -235,8 +246,8 @@
 			}
 			
 			if (empty($this->_errors)) {
-				if (!$write = General::writeFile($file_abs, $fields['body'], $this->_Parent->Configuration->get('write_mode', 'file'))) {
-					$this->pageAlert(__('Utility could not be written to disk. Please check permissions on <code>/workspace/utilities</code>.'), Alert::ERROR);
+				if (!$write = General::writeFile($file_abs, $fields['body'], Symphony::Configuration()->get('write_mode', 'file'))) {
+					$this->pageAlert(__('Page could not be written to disk. Please check permissions on <code>/workspace/pages</code>.'), Alert::ERROR);
 					
 				} else {
 					redirect(URL . '/symphony/blueprints/pages/template/' . $this->_context[1] . '/saved/');
@@ -256,7 +267,7 @@
 			if ($this->_context[0] == 'edit') {
 				if (!$page_id = $this->_context[1]) redirect(URL . '/symphony/blueprints/pages/');
 				
-				$existing = $this->_Parent->Database->fetchRow(0, "
+				$existing = Symphony::Database()->fetchRow(0, "
 					SELECT
 						p.*
 					FROM
@@ -278,21 +289,42 @@
 			}
 			
 			// Status message:
-			if (isset($this->_context[2])) {
-				$this->pageAlert(
-					__(
-						'%s %s at %s. <a href="%s">Create another?</a> <a href="%s">View all %s</a>',
-						array(
-							__('Page'),
-							($this->_context[2] == 'saved' ? 'updated' : 'created'),
-							DateTimeObj::getTimeAgo(__SYM_TIME_FORMAT__),
-							URL . '/symphony/blueprints/pages/new/',
-							URL . '/symphony/blueprints/pages/',
-							__('Pages')
-						)
-					),
-					Alert::SUCCESS
-				);
+			$flag = $this->_context[2];
+			if (isset($flag)){
+
+				switch($flag){
+					
+					case 'saved':
+						
+						$this->pageAlert(
+							__(
+								'Page updated at %1$s. <a href="%2$s">Create another?</a> <a href="%3$s">View all Pages</a>', 
+								array(
+									DateTimeObj::getTimeAgo(__SYM_TIME_FORMAT__), 
+									URL . '/symphony/blueprints/pages/new/',
+									URL . '/symphony/blueprints/pages/',
+								)
+							), 
+							Alert::SUCCESS);
+													
+						break;
+						
+					case 'created':
+
+						$this->pageAlert(
+							__(
+								'Page created at %1$s. <a href="%2$s">Create another?</a> <a href="%3$s">View all Pages</a>', 
+								array(
+									DateTimeObj::getTimeAgo(__SYM_TIME_FORMAT__), 
+									URL . '/symphony/blueprints/pages/new/',
+									URL . '/symphony/blueprints/pages/',
+								)
+							), 
+							Alert::SUCCESS);
+							
+						break;
+					
+				}
 			}
 			
 			// Find values:
@@ -301,7 +333,7 @@
 				
 			} else if ($this->_context[0] == 'edit') {
 				$fields = $existing;
-				$types = $this->_Parent->Database->fetchCol('type', "
+				$types = Symphony::Database()->fetchCol('type', "
 					SELECT
 						p.type
 					FROM
@@ -328,7 +360,17 @@
 					$title
 				)
 			));
-			$this->appendSubheading(($title ? $title : __('Untitled')));
+			if ($existing) {
+				$template_name = $fields['handle'];
+				if ($existing['parent']){
+					$parents = $this->__getParent($existing['parent']);
+					$template_name = $parents . '_' . $fields['handle'];
+				}
+				$this->appendSubheading(__($title ? $title : __('Untitled')), Widget::Anchor(__('Edit Template'), URL . '/symphony/blueprints/pages/template/' . $template_name, __('Edit Page Template'), 'button'));
+			}
+			else {
+				$this->appendSubheading(($title ? $title : __('Untitled')));
+			}
 			
 		// Title --------------------------------------------------------------
 			
@@ -368,7 +410,7 @@
 			
 			$label = Widget::Label(__('Parent Page'));
 			
-			$pages = $this->_Parent->Database->fetch("
+			$pages = Symphony::Database()->fetch("
 				SELECT
 					p.*
 				FROM
@@ -500,8 +542,26 @@
 			$this->Form->appendChild($div);
 		}
 		
+		protected function __getParent($page_id) {
+			$parent = Symphony::Database()->fetchRow(0, "
+					SELECT
+						p.*
+					FROM
+						`tbl_pages` AS p
+					WHERE
+						p.id = '{$page_id}'
+					LIMIT 1
+				");
+			$handle = $parent['handle'];
+			if($parent['parent']){
+				$ancestor = $this->__getParent($parent['parent']);
+				$handle = $ancestor . '_' . $handle;
+			}
+			return $handle;
+		}
+		
 		protected function __typeUsed($page_id, $type) {
-			$row = $this->_Parent->Database->fetchRow(0, "
+			$row = Symphony::Database()->fetchRow(0, "
 				SELECT
 					p.*
 				FROM
@@ -532,7 +592,7 @@
 				$fields = $_POST['fields'];
 				$this->_errors = array();
 				
-				$current = $this->_Parent->Database->fetchRow(0, "
+				$current = Symphony::Database()->fetchRow(0, "
 					SELECT
 						p.*
 					FROM
@@ -566,7 +626,7 @@
 					$autogenerated_handle = false;
 					
 					if (empty($current)) {
-						$fields['sortorder'] = $this->_Parent->Database->fetchVar('next', 0, "
+						$fields['sortorder'] = Symphony::Database()->fetchVar('next', 0, "
 							SELECT
 								MAX(p.sortorder) + 1 AS `next`
 							FROM
@@ -605,7 +665,7 @@
 					}
 					
 					// Check for duplicates:
-					$duplicate = $this->_Parent->Database->fetchRow(0, "
+					$duplicate = Symphony::Database()->fetchRow(0, "
 						SELECT
 							p.*
 						FROM
@@ -629,13 +689,14 @@
 							$current['path'], $current['handle']
 						);
 					}
-					
+
 					if (!$file_created) {
 						$redirect = null;
 						$this->pageAlert(
 							__('Page could not be written to disk. Please check permissions on <code>/workspace/pages</code>.'),
 							Alert::ERROR
 						);
+						return;
 					}
 					
 					if ($duplicate) {
@@ -648,7 +709,7 @@
 						
 					// Insert the new data:
 					} else if (empty($current)) {
-						if (!$this->_Parent->Database->insert($fields, 'tbl_pages')) {
+						if (!Symphony::Database()->insert($fields, 'tbl_pages')) {
 							$this->pageAlert(
 								__(
 									'Unknown errors occurred while attempting to save. Please check your <a href="%s">activity log</a>.',
@@ -660,13 +721,13 @@
 							);
 							
 						} else {
-							$page_id = $this->_Parent->Database->getInsertID();
+							$page_id = Symphony::Database()->getInsertID();
 							$redirect = "/symphony/blueprints/pages/edit/{$page_id}/created/";
 						}
 						
 					// Update existing:
 					} else {
-						if (!$this->_Parent->Database->update($fields, 'tbl_pages', "`id` = '$page_id'")) {
+						if (!Symphony::Database()->update($fields, 'tbl_pages', "`id` = '$page_id'")) {
 							$this->pageAlert(
 								__(
 									'Unknown errors occurred while attempting to save. Please check your <a href="%s">activity log</a>.',
@@ -678,14 +739,14 @@
 							);
 							
 						} else {
-							$this->_Parent->Database->delete('tbl_pages_types', " `page_id` = '$page_id'");
+							Symphony::Database()->delete('tbl_pages_types', " `page_id` = '$page_id'");
 							$redirect = "/symphony/blueprints/pages/edit/{$page_id}/saved/";
 						}
 					}
 					
 					// Assign page types:
 					if (is_array($types) && !empty($types)) {
-						foreach ($types as $type) $this->_Parent->Database->insert(
+						foreach ($types as $type) Symphony::Database()->insert(
 							array(
 								'page_id' => $page_id,
 								'type' => $type
@@ -713,7 +774,7 @@
 		
 		protected function __updatePageChildren($page_id, $page_path, &$success = true) {
 			$page_path = trim($page_path, '/');
-			$children = $this->_Parent->Database->fetch("
+			$children = Symphony::Database()->fetch("
 				SELECT
 					p.id, p.path, p.handle
 				FROM
@@ -733,7 +794,7 @@
 					$success = false;
 				}
 				
-				if (!$this->_Parent->Database->update($fields, 'tbl_pages', "`id` = '$child_id'")) {
+				if (!Symphony::Database()->update($fields, 'tbl_pages', "`id` = '$child_id'")) {
 					$success = false;
 				}
 				
@@ -753,17 +814,25 @@
 			$data = null;
 			
 			// Nothing to do:
-			if (file_exists($new) && $new == old) return true;
-			
-			// Old file doesn't exist, use template:
-			if (!file_exists($old)) {
-				$data = file_get_contents(TEMPLATE . '/page.xsl');
-				
-			} else {
-				$data = file_get_contents($old); @unlink($old);
+			if(file_exists($new) && $new == $old){
+				return true;
 			}
 			
-			return General::writeFile($new, $data, $this->_Parent->Configuration->get('write_mode', 'file'));
+			// Old file doesn't exist, use template:
+			if(!file_exists($old)) {
+				$data = file_get_contents(TEMPLATE . '/page.xsl');
+			} 
+			else{
+				$data = file_get_contents($old);
+			}
+			
+			$result = General::writeFile($new, $data, Symphony::Configuration()->get('write_mode', 'file'));
+			
+			if($result == true && file_exists($old)){
+				General::deleteFile($old);
+			}
+			
+			return $result;
 		}
 		
 		protected function __deletePageFiles($path, $handle) {
@@ -779,7 +848,7 @@
 		}
 		
 		protected function __hasChildren($page_id) {
-			return (boolean)$this->_Parent->Database->fetchVar('id', 0, "
+			return (boolean)Symphony::Database()->fetchVar('id', 0, "
 				SELECT
 					p.id
 				FROM
@@ -796,7 +865,7 @@
 			if (!is_array($pages)) $pages = array($pages);
 			
 			foreach ($pages as $page_id) {
-				$page = $this->_Parent->Database->fetchRow(0, "
+				$page = Symphony::Database()->fetchRow(0, "
 					SELECT
 						p.*
 					FROM
@@ -838,9 +907,9 @@
 					continue;
 				}
 				
-				$this->_Parent->Database->delete('tbl_pages', " `id` = '{$page_id}'");
-				$this->_Parent->Database->delete('tbl_pages_types', " `page_id` = '{$page_id}'");
-				$this->_Parent->Database->query("
+				Symphony::Database()->delete('tbl_pages', " `id` = '{$page_id}'");
+				Symphony::Database()->delete('tbl_pages_types', " `page_id` = '{$page_id}'");
+				Symphony::Database()->query("
 					UPDATE
 						tbl_pages
 					SET
@@ -866,4 +935,3 @@
 		}	
 	}
 	
-?>
