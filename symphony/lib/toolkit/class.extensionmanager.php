@@ -172,7 +172,7 @@
 		}
 
 		function listInstalledHandles(){
-			return $this->_Parent->Database->fetchCol('name', "SELECT `name` FROM `tbl_extensions` WHERE `status` = 'enabled'");
+			return Symphony::Database()->fetchCol('name', "SELECT `name` FROM `tbl_extensions` WHERE `status` = 'enabled'");
 		}
 
         ## Will return a list of all extensions and their about information

@@ -73,7 +73,7 @@
 				}
 								
 				$parsed = parse_url(
-					preg_replace('/^www./i', NULL, $_SERVER['HTTP_HOST'])
+					'http://' . preg_replace('/^www./i', NULL, $_SERVER['HTTP_HOST'])
 				);
 				
 				$domain = $parsed['host'];

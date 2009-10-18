@@ -173,7 +173,6 @@
 		$conf['symphony']['version'] = '2.0.6';
 		$conf['log']['archive'] = '1';
 		$conf['log']['maxsize'] = '102400';
-		$conf['general']['sitename'] = 'Symphony CMS';
 		$conf['image']['cache'] = '1';
 		$conf['image']['quality'] = '90';
 		$conf['database']['driver'] = 'mysql';
@@ -181,9 +180,39 @@
 		$conf['database']['character_encoding'] = 'utf8';
 		$conf['database']['runtime_character_set_alter'] = '1';
 		$conf['database']['disable_query_caching'] = 'no';
-		$conf['public']['display_event_xml_in_source'] = 'yes';
-		$conf['region']['time_format'] = 'H:i';
+		$conf['public']['display_event_xml_in_source'] = 'no';
+		$conf['general']['sitename'] = 'Forum Ensemble';
+		$conf['region']['time_format'] = 'g:i a';
 		$conf['region']['date_format'] = 'd F Y';
+		$conf['content-type-mappings']['xml'] = 'text/xml; charset=utf-8';
+		$conf['content-type-mappings']['text'] = 'text/plain; charset=utf-8';
+		$conf['members']['cookie-prefix'] = 'sym-members';
+		$conf['members']['member_section'] = '1';
+		$conf['members']['forgotten_pass_email_subject'] = 'Symphony Password Retrieval';
+		$conf['members']['forgotten_pass_email_body'] = 'Dear {$name},
+
+Here is your super secret code, which you\'ll need to reset your password: {$member-token}
+
+Just go to {$root}/members/reset-pass/code/ and enter said code to get a new password. The code will expire in one hour, so if you miss your window, simply head to the above link and click the \\\\\"Resend Email\\\\\" button to get a new one.
+
+If you have any trouble, please email us at support@symphony-cms.com and we\'ll do our best to help.
+
+Regards,
+
+Symphony Team';
+		$conf['members']['email_address_field_id'] = '4';
+		$conf['members']['timezone_offset_field_id'] = '8';
+		$conf['forum']['discussion-section'] = '2';
+		$conf['forum']['comment-section'] = '3';
+		$conf['forum']['member-link-field'] = '11';
+		$conf['forum']['discussion-last-post-field'] = '13';
+		$conf['forum']['discussion-last-active-field'] = '14';
+		$conf['forum']['unread-cutoff-field'] = '19';
+		$conf['forum']['pinned-field'] = '15';
+		$conf['forum']['locked-field'] = '16';
+		$conf['forum']['comment-discussion-link-field'] = '18';
+		$conf['forum']['comment-member-link-field'] = '20';
+		$conf['forum']['comment-creation-date-field'] = '19';
 		$conf['maintenance_mode']['enabled'] = 'no';
 	
 		return $conf;

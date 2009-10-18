@@ -81,13 +81,13 @@
 			$_vals		= array();
 			$_index		= array();
 			
-			if($isFile)
+			if($isFile){
 				$_data = @file_get_contents($data);
-				
-			else
+			}	
+			else{
 				$_data = $data;
-
-			$_data = preg_replace('/(&[\\w]{2,6};)/', '',$_data);
+			}
+			
 			$_data = preg_replace('/<!DOCTYPE[-.:"\'\/\\w\\s]+>/' , '', $_data);
 			
 			if(strpos($_data, '<?xml') === false){
@@ -95,7 +95,7 @@
 			}
 			
 			if(@is_object($xsltProcessor)){
-				
+
 				$xsl = '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
 				<xsl:template match="/"></xsl:template>
@@ -108,7 +108,7 @@
 					$errors = $xsltProcessor->getError(true);
 					return false;
 				}
-				
+
 			}else{
 			
 				$_parser = xml_parser_create();

@@ -100,18 +100,6 @@
 			if($this->get('required') == 'yes' && strlen($data) == 0){
 				$message = __("'%s' is a required field.", array($this->get('label')));
 				return self::__MISSING_FIELDS__;
-			}	
-			
-			if(empty($data)) self::__OK__;
-			
-			$formatted = $this->applyFormatting($data);
-			
-			include_once(TOOLKIT . '/class.xsltprocess.php');
-			$xsltProc =& new XsltProcess;	
-			
-			if(!General::validateXML(($formatted ? $formatted : General::sanitize($data)), $errors, false, $xsltProc)){
-				$message = __('"%1$s" contains invalid XML. The following error was returned: <code>%2$s</code>', array($this->get('label'), $errors[0]['message']));
-				return self::__INVALID_FIELDS__;
 			}
 			
 			return self::__OK__;
@@ -125,13 +113,21 @@
 				'value' => $data
 			);
 			
-			if ($formatted = $this->applyFormatting($data)) {
-				$result['value_formatted'] = $formatted;
-				
-			} else {
-				$result['value_formatted'] = General::sanitize($data);
-			}
+			$formatted = $this->applyFormatting($data);
 			
+			include_once(TOOLKIT . '/class.xsltprocess.php');
+			
+			$result['value_formatted'] = $formatted;
+			
+			if(!General::validateXML($formatted, $errors, false, new XsltProcess)){
+				$result['value_formatted'] = html_entity_decode($formatted, ENT_QUOTES, 'UTF-8');
+				$result['value_formatted'] = $this->replaceAmpersands($result['value_formatted']);
+
+				if(!General::validateXML($result['value_formatted'], $errors, false, new XsltProcess)){
+					$result['value_formatted'] = General::sanitize($formatted);
+				}
+			}
+
 			return $result;
 		}
 
@@ -144,11 +140,11 @@
 				
 				$formatter = $tfm->create($this->get('formatter'));
 
-				return $formatter->run($data);
+				return $data = $formatter->run($data);
 
 			}	
 			
-			return NULL;		
+			return $data;		
 		}
 		
 		private function replaceAmpersands($value) {
@@ -169,10 +165,6 @@
 
 				$value = $this->replaceAmpersands($value);
 				
-				$attributes = array(
-					'word-count' => General::countWords($value)
-				);
-				
 				if ($mode == 'formatted') $attributes['mode'] = $mode;
 				
 				$wrapper->appendChild(
@@ -183,16 +175,15 @@
 					)
 				);
 				
-			} elseif ($mode == 'unformatted') {
-				
-				$value = $this->replaceAmpersands($data['value']);
+			} 
+			
+			elseif ($mode == 'unformatted') {
 
 				$wrapper->appendChild(
 					new XMLElement(
 						$this->get('element_name'),
-						($encode ? General::sanitize($value) : $value),
+						sprintf('<![CDATA[%s]]>', $data['value']),
 						array(
-							'word-count' => General::countWords($value),
 							'mode' => $mode
 						)
 					)
